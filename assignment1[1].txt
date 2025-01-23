@@ -1,0 +1,206 @@
+
+//ASSIGNMENT 1
+Bridget Masila
+SCT221-0228/2022
+21/01/2024
+
+
+
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define MAX_CHAR 256 
+
+
+struct HuffmanNode {
+    char character;              
+    size_t frequency;            
+    struct HuffmanNode *left;    // Left child
+    struct HuffmanNode *right;   // Right child
+};
+
+
+struct MinHeap {
+    size_t size;                 
+    size_t capacity;             
+    struct HuffmanNode** array;  
+};
+
+
+struct HuffmanNode* createNode(char character, size_t frequency) {
+    struct HuffmanNode* node = (struct HuffmanNode*)malloc(sizeof(struct HuffmanNode));
+    node->character = character;
+    node->frequency = frequency;
+    node->left = node->right = NULL;
+    return node;
+}
+
+y
+struct MinHeap* createMinHeap(size_t capacity) {
+    struct MinHeap* heap = (struct MinHeap*)malloc(sizeof(struct MinHeap));
+    heap->size = 0;
+    heap->capacity = capacity;
+    heap->array = (struct HuffmanNode**)malloc(capacity * sizeof(struct HuffmanNode*));
+    return heap;
+}
+
+
+void swapNodes(struct HuffmanNode** a, struct HuffmanNode** b) {
+    struct HuffmanNode* temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+
+void minHeapify(struct MinHeap* heap, int index) {
+    int smallest = index;
+    int leftChild = 2 * index + 1;
+    int rightChild = 2 * index + 2;
+
+    if (leftChild < heap->size && heap->array[leftChild]->frequency < heap->array[smallest]->frequency)
+        smallest = leftChild;
+
+    if (rightChild < heap->size && heap->array[rightChild]->frequency < heap->array[smallest]->frequency)
+        smallest = rightChild;
+
+    if (smallest != index) {
+        swapNodes(&heap->array[smallest], &heap->array[index]);
+        minHeapify(heap, smallest);
+    }
+}
+
+
+void insertMinHeap(struct MinHeap* heap, struct HuffmanNode* node) {
+    heap->size++;
+    int i = heap->size - 1;
+
+    
+    while (i && node->frequency < heap->array[(i - 1) / 2]->frequency) {
+        heap->array[i] = heap->array[(i - 1) / 2];
+        i = (i - 1) / 2;
+    }
+    heap->array[i] = node;
+}
+
+
+struct HuffmanNode* extractMin(struct MinHeap* heap) {
+    struct HuffmanNode* root = heap->array[0];
+    heap->array[0] = heap->array[heap->size - 1];
+    heap->size--;
+    minHeapify(heap, 0);
+    return root;
+}
+
+
+struct HuffmanNode* buildHuffmanTree(char characters[], size_t frequencies[], size_t size) {
+    struct MinHeap* heap = createMinHeap(size);
+
+    
+    for (size_t i = 0; i < size; i++) {
+        heap->array[i] = createNode(characters[i], frequencies[i]);
+    }
+    heap->size = size;
+
+    
+    for (int i = (heap->size - 2) / 2; i >= 0; i--) {
+        minHeapify(heap, i);
+    }
+
+    
+    while (heap->size > 1) {
+        struct HuffmanNode* left = extractMin(heap);
+        struct HuffmanNode* right = extractMin(heap);
+
+        
+        struct HuffmanNode* parent = createNode('$', left->frequency + right->frequency);
+        parent->left = left;
+        parent->right = right;
+
+        insertMinHeap(heap, parent);
+    }
+
+    
+    return extractMin(heap);
+}
+
+
+void assignHuffmanCodes(struct HuffmanNode* root, int code[], int depth, int* codeLengths) {
+    if (root->left) {
+        code[depth] = 0;
+        assignHuffmanCodes(root->left, code, depth + 1, codeLengths);
+    }
+
+    if (root->right) {
+        code[depth] = 1;
+        assignHuffmanCodes(root->right, code, depth + 1, codeLengths);
+    }
+
+    if (!root->left && !root->right) {
+        codeLengths[(unsigned char)root->character] = depth;
+    }
+}
+
+
+void calculateCompressionStats(char* text) {
+    size_t frequencies[MAX_CHAR] = {0};
+    size_t length = strlen(text);
+
+    
+    for (size_t i = 0; i < length; i++) {
+        frequencies[(unsigned char)text[i]]++;
+    }
+
+    char characters[MAX_CHAR];
+    size_t charFrequencies[MAX_CHAR];
+    size_t uniqueCharCount = 0;
+
+    
+    for (size_t i = 0; i < MAX_CHAR; i++) {
+        if (frequencies[i] > 0) {
+            characters[uniqueCharCount] = i;
+            charFrequencies[uniqueCharCount] = frequencies[i];
+            uniqueCharCount++;
+        }
+    }
+
+    
+    struct HuffmanNode* root = buildHuffmanTree(characters, charFrequencies, uniqueCharCount);
+
+    
+    int code[MAX_CHAR];
+    int codeLengths[MAX_CHAR] = {0};
+    assignHuffmanCodes(root, code, 0, codeLengths);
+
+    
+    size_t sizeBefore = length * 8; 
+    size_t sizeAfter = 0;
+
+    for (size_t i = 0; i < uniqueCharCount; i++) {
+        sizeAfter += charFrequencies[i] * codeLengths[(unsigned char)characters[i]];
+    }
+
+    printf("Size of text before compression: %zu bits\n", sizeBefore);
+    printf("Size of text after compression: %zu bits\n", sizeAfter);
+}
+
+int main() {
+    char text[1000];
+
+    // Loop to allow multiple inputs
+    while (1) {
+        printf("Enter text to compress (or type 'exit' to quit the program): ");
+        fgets(text, sizeof(text), stdin);
+        text[strcspn(text, "\n")] = '\0'; 
+
+        if (strcmp(text, "exit") == 0) {
+            break;
+        }
+
+        calculateCompressionStats(text);
+        printf("\n");
+    }
+
+    return 0;
+}
